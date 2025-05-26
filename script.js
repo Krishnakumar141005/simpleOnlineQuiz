@@ -11,13 +11,26 @@
   const confirmPasswordInput = document.getElementById('confirm-password');
   const userInfo = document.getElementById('user-info');
 
+  const questionNav = document.getElementById('question-nav');
+  const questionText = document.getElementById('question-text');
+  const optionsContainer = document.getElementById('options-container');
+  const fillInput = document.getElementById('input-fill');
+  const fillAnswerInput = document.getElementById('fill-answer');
+  const prevBtn = document.getElementById('prev-btn');
+  const nextBtn = document.getElementById('next-btn');
+  const submitBtn = document.getElementById('submit-btn');
+  const scoreText = document.getElementById('score-text');
+  const logoutBtn = document.getElementById('logout-btn');
+  const reviewBtn = document.getElementById('review-btn');
+  const reviewContainer = document.getElementById('review-container');
+
   let isLogin = true;
   let questions = [];
-  let userAnswers = [];
   let currentQuestion = 0;
+  let userAnswers = [];
 
-  const allQuestions =[
-  { type: "mcq", question: "What does HTML stand for?", options: ["HyperText Markup Language", "HighText Machine Language", "Hyper Tabular Markup Language", "None of these"], answer: "HyperText Markup Language" },
+  // Full pool of questions
+  const allQuestions = [ { type: "mcq", question: "What does HTML stand for?", options: ["HyperText Markup Language", "HighText Machine Language", "Hyper Tabular Markup Language", "None of these"], answer: "HyperText Markup Language" },
   { type: "mcq", question: "Which HTML tag is used to define an internal style sheet?", options: ["<css>", "<script>", "<style>", "<link>"], answer: "<style>" },
   { type: "fill", question: "Fill in the blank: CSS stands for Cascading ___ Sheets.", answer: "Style" },
   { type: "mcq", question: "Which HTML attribute is used to define inline styles?", options: ["style", "class", "font", "styles"], answer: "style" },
@@ -46,20 +59,9 @@
   { type: "fill", question: "Fill in the blank: GitHub uses ___ control system.", answer: "Version" },
   { type: "mcq", question: "What does 'this' keyword refer to in a regular JS function?", options: ["The function itself", "Global object", "Parent object", "Current HTML element"], answer: "Global object" },
   { type: "mcq", question: "Which attribute is used in HTML to open links in a new tab?", options: ["target='_blank'", "href='new'", "newtab", "blank"], answer: "target='_blank'" },
-  { type: "fill", question: "Fill in the blank: HTML was invented by Tim ___.", answer: "Berners-Lee" }
-];
+  { type: "fill", question: "Fill in the blank: HTML was invented by Tim ___.", answer: "Berners-Lee" } ];
 
-  const questionNav = document.getElementById('question-nav');
-  const questionText = document.getElementById('question-text');
-  const optionsContainer = document.getElementById('options-container');
-  const fillInput = document.getElementById('input-fill');
-  const fillAnswerInput = document.getElementById('fill-answer');
-  const prevBtn = document.getElementById('prev-btn');
-  const nextBtn = document.getElementById('next-btn');
-  const submitBtn = document.getElementById('submit-btn');
-  const scoreText = document.getElementById('score-text');
-  const logoutBtn = document.getElementById('logout-btn');
-
+  // Toggle login/signup mode
   function toggleMode() {
     isLogin = !isLogin;
     formTitle.innerText = isLogin ? 'Login' : 'Sign Up';
@@ -98,33 +100,31 @@
         return;
       }
       localStorage.setItem('user_' + username, JSON.stringify({ password }));
-      alert('Account created successfully! Please log in.');
+      alert('Account created! Please log in.');
       toggleMode();
     } else {
-      const userDataStr = localStorage.getItem('user_' + username);
-      if (!userDataStr) {
-        alert('User not found. Please sign up first.');
+      const userData = JSON.parse(localStorage.getItem('user_' + username));
+      if (!userData || userData.password !== password) {
+        alert('Invalid credentials.');
         return;
       }
-      const userData = JSON.parse(userDataStr);
-      if (userData.password === password) {
-        localStorage.setItem('currentUser', username);
-        startQuiz();
-      } else {
-        alert('Invalid password.');
-      }
+      localStorage.setItem('currentUser', username);
+      startQuiz();
     }
   }
 
   function startQuiz() {
     questions = allQuestions.sort(() => 0.5 - Math.random()).slice(0, 10);
-    currentQuestion = 0;
     userAnswers = new Array(questions.length).fill(null);
+    currentQuestion = 0;
 
     authContainer.style.display = 'none';
     quizContainer.style.display = 'block';
     resultContainer.style.display = 'none';
+    reviewContainer.style.display = 'none';
+    reviewBtn.style.display = 'none';
     userInfo.textContent = `Logged in as: ${localStorage.getItem('currentUser')}`;
+
     renderQuestionNav();
     renderQuestion(currentQuestion);
   }
@@ -149,27 +149,24 @@
     const q = questions[index];
     questionText.textContent = `${index + 1}. ${q.question}`;
     optionsContainer.innerHTML = '';
+    fillInput.style.display = 'none';
     fillAnswerInput.value = '';
 
     if (q.type === 'mcq') {
-      fillInput.style.display = 'none';
       q.options.forEach(opt => {
         const label = document.createElement('label');
         const radio = document.createElement('input');
         radio.type = 'radio';
         radio.name = 'option';
         radio.value = opt;
-        if (userAnswers[index] === opt) {
-          radio.checked = true;
-        }
+        if (userAnswers[index] === opt) radio.checked = true;
         label.appendChild(radio);
         label.append(opt);
         optionsContainer.appendChild(label);
       });
-    } else if (q.type === 'fill') {
-      optionsContainer.innerHTML = '';
+    } else {
       fillInput.style.display = 'block';
-      fillAnswerInput.value = userAnswers[index] || '';
+      if (userAnswers[index]) fillAnswerInput.value = userAnswers[index];
     }
 
     renderQuestionNav();
@@ -181,7 +178,7 @@
     if (q.type === 'mcq') {
       const selected = document.querySelector('input[name="option"]:checked');
       userAnswers[currentQuestion] = selected ? selected.value : null;
-    } else if (q.type === 'fill') {
+    } else {
       userAnswers[currentQuestion] = fillAnswerInput.value.trim() || null;
     }
   }
@@ -203,6 +200,7 @@
     quizContainer.style.display = 'none';
     resultContainer.style.display = 'block';
     scoreText.textContent = `You scored ${score} out of ${questions.length}`;
+    reviewBtn.style.display = 'inline-block';
   }
 
   function logout() {
@@ -215,6 +213,29 @@
     resultContainer.style.display = 'none';
   }
 
+  function reviewAnswers() {
+    reviewContainer.innerHTML = '';
+    questions.forEach((q, i) => {
+      const div = document.createElement('div');
+      const userAns = userAnswers[i] || '(No answer)';
+      const isCorrect = q.type === 'mcq'
+        ? userAns === q.answer
+        : userAns.toLowerCase() === q.answer.toLowerCase();
+
+      div.innerHTML = `
+        <p><strong>Q${i + 1}:</strong> ${q.question}</p>
+        <p><strong>Your Answer:</strong> ${userAns}</p>
+        <p><strong>Correct Answer:</strong> ${q.answer}</p>
+        <p style="color: ${isCorrect ? 'green' : 'red'};"><strong>${isCorrect ? 'Correct' : 'Incorrect'}</strong></p>
+        <hr>
+      `;
+      reviewContainer.appendChild(div);
+    });
+    reviewContainer.style.display = 'block';
+    reviewBtn.style.display = 'none';
+  }
+
+  // Event listeners
   authButton.addEventListener('click', handleAuth);
   document.getElementById('toggle-link').addEventListener('click', toggleMode);
   prevBtn.addEventListener('click', () => {
@@ -233,9 +254,11 @@
   });
   submitBtn.addEventListener('click', () => {
     if (userAnswers.includes(null)) {
-      if (!confirm("You have unanswered questions. Do you want to submit anyway?")) return;
+      if (!confirm("You have unanswered questions. Submit anyway?")) return;
     }
     submitQuiz();
   });
   logoutBtn.addEventListener('click', logout);
+  reviewBtn.addEventListener('click', reviewAnswers);
+
 })();
